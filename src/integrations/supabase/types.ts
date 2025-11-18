@@ -14,7 +14,140 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      book_requests: {
+        Row: {
+          book_id: string
+          completed_at: string | null
+          id: string
+          pickup_location: string | null
+          request_type: string
+          requested_at: string | null
+          robot_task_id: string | null
+          status: string | null
+          student_name: string
+        }
+        Insert: {
+          book_id: string
+          completed_at?: string | null
+          id?: string
+          pickup_location?: string | null
+          request_type: string
+          requested_at?: string | null
+          robot_task_id?: string | null
+          status?: string | null
+          student_name: string
+        }
+        Update: {
+          book_id?: string
+          completed_at?: string | null
+          id?: string
+          pickup_location?: string | null
+          request_type?: string
+          requested_at?: string | null
+          robot_task_id?: string | null
+          status?: string | null
+          student_name?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "book_requests_book_id_fkey"
+            columns: ["book_id"]
+            isOneToOne: false
+            referencedRelation: "books"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "book_requests_robot_task_id_fkey"
+            columns: ["robot_task_id"]
+            isOneToOne: false
+            referencedRelation: "robot_tasks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      books: {
+        Row: {
+          author: string
+          available: boolean | null
+          call_number: string | null
+          category: string | null
+          created_at: string | null
+          id: string
+          isbn: string | null
+          shelf_location: string
+          title: string
+        }
+        Insert: {
+          author: string
+          available?: boolean | null
+          call_number?: string | null
+          category?: string | null
+          created_at?: string | null
+          id?: string
+          isbn?: string | null
+          shelf_location: string
+          title: string
+        }
+        Update: {
+          author?: string
+          available?: boolean | null
+          call_number?: string | null
+          category?: string | null
+          created_at?: string | null
+          id?: string
+          isbn?: string | null
+          shelf_location?: string
+          title?: string
+        }
+        Relationships: []
+      }
+      robot_tasks: {
+        Row: {
+          book_id: string | null
+          completed_at: string | null
+          id: string
+          notes: string | null
+          priority: number | null
+          requested_at: string | null
+          started_at: string | null
+          status: string | null
+          student_name: string | null
+          task_type: string
+        }
+        Insert: {
+          book_id?: string | null
+          completed_at?: string | null
+          id?: string
+          notes?: string | null
+          priority?: number | null
+          requested_at?: string | null
+          started_at?: string | null
+          status?: string | null
+          student_name?: string | null
+          task_type: string
+        }
+        Update: {
+          book_id?: string | null
+          completed_at?: string | null
+          id?: string
+          notes?: string | null
+          priority?: number | null
+          requested_at?: string | null
+          started_at?: string | null
+          status?: string | null
+          student_name?: string | null
+          task_type?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "robot_tasks_book_id_fkey"
+            columns: ["book_id"]
+            isOneToOne: false
+            referencedRelation: "books"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never

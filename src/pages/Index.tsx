@@ -1,9 +1,11 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Search, BookOpen, Clock, MapPin } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { supabase } from "@/integrations/supabase/client";
+import { BookSearchResults } from "@/components/BookSearchResults";
 
 interface BookRequest {
   id: string;
@@ -16,24 +18,84 @@ interface BookRequest {
 
 const Index = () => {
   const [searchQuery, setSearchQuery] = useState("");
-  const [activeRequests] = useState<BookRequest[]>([
-    {
-      id: "1",
-      title: "The Great Gatsby",
-      author: "F. Scott Fitzgerald",
-      status: "in-transit",
-      pickupLocation: "Front Desk",
-      requestedAt: "10 mins ago"
-    },
-    {
-      id: "2",
-      title: "To Kill a Mockingbird",
-      author: "Harper Lee",
-      status: "ready",
-      pickupLocation: "Front Desk",
-      requestedAt: "25 mins ago"
+  const [searchResults, setSearchResults] = useState<any[]>([]);
+  const [isSearching, setIsSearching] = useState(false);
+  const [activeRequests, setActiveRequests] = useState<BookRequest[]>([]);
+
+  // Fetch active requests
+  useEffect(() => {
+    fetchActiveRequests();
+
+    // Subscribe to realtime updates
+    const channel = supabase
+      .channel('book-requests-changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'book_requests'
+        },
+        () => {
+          fetchActiveRequests();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, []);
+
+  const fetchActiveRequests = async () => {
+    const { data, error } = await supabase
+      .from('book_requests')
+      .select(`
+        *,
+        books (title, author, shelf_location)
+      `)
+      .order('requested_at', { ascending: false })
+      .limit(10);
+
+    if (!error && data) {
+      setActiveRequests(
+        data.map((req: any) => ({
+          id: req.id,
+          title: req.books.title,
+          author: req.books.author,
+          status: req.status === 'robot_navigating' ? 'in-transit' : req.status,
+          pickupLocation: req.books.shelf_location,
+          requestedAt: new Date(req.requested_at).toLocaleTimeString()
+        }))
+      );
     }
-  ]);
+  };
+
+  const handleSearch = async () => {
+    if (!searchQuery.trim()) return;
+    
+    setIsSearching(true);
+    try {
+      const { data, error } = await supabase
+        .from('books')
+        .select('*')
+        .or(`title.ilike.%${searchQuery}%,author.ilike.%${searchQuery}%,isbn.ilike.%${searchQuery}%`)
+        .limit(20);
+
+      if (error) throw error;
+      setSearchResults(data || []);
+    } catch (error) {
+      console.error('Search error:', error);
+    } finally {
+      setIsSearching(false);
+    }
+  };
+
+  const handleKeyPress = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      handleSearch();
+    }
+  };
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -78,18 +140,43 @@ const Index = () => {
         {/* Search Bar */}
         <Card className="shadow-lg border-0">
           <CardContent className="p-4">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-muted-foreground" />
-              <Input
-                type="text"
-                placeholder="Search by title, author, or ISBN..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-10 h-12 text-base border-0 focus-visible:ring-0 bg-muted/50"
-              />
+            <div className="flex gap-2">
+              <div className="relative flex-1">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+                <Input
+                  type="text"
+                  placeholder="Search by title, author, or ISBN..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  onKeyPress={handleKeyPress}
+                  className="pl-10 h-12 text-base border-0 focus-visible:ring-0 bg-muted/50"
+                />
+              </div>
+              <Button 
+                onClick={handleSearch} 
+                disabled={isSearching}
+                className="h-12 px-6"
+              >
+                {isSearching ? "Searching..." : "Search"}
+              </Button>
             </div>
           </CardContent>
         </Card>
+
+        {/* Search Results */}
+        {searchResults.length > 0 && (
+          <div className="mt-6">
+            <h2 className="text-xl font-semibold mb-4 text-foreground">Search Results</h2>
+            <BookSearchResults 
+              books={searchResults} 
+              onRequestSuccess={() => {
+                setSearchResults([]);
+                setSearchQuery("");
+                fetchActiveRequests();
+              }}
+            />
+          </div>
+        )}
 
         {/* Quick Actions */}
         <div className="grid grid-cols-2 gap-4 mt-6">
