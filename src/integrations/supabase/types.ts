@@ -25,6 +25,7 @@ export type Database = {
           robot_task_id: string | null
           status: string | null
           student_name: string
+          user_id: string | null
         }
         Insert: {
           book_id: string
@@ -36,6 +37,7 @@ export type Database = {
           robot_task_id?: string | null
           status?: string | null
           student_name: string
+          user_id?: string | null
         }
         Update: {
           book_id?: string
@@ -47,6 +49,7 @@ export type Database = {
           robot_task_id?: string | null
           status?: string | null
           student_name?: string
+          user_id?: string | null
         }
         Relationships: [
           {
@@ -113,6 +116,7 @@ export type Database = {
           status: string | null
           student_name: string | null
           task_type: string
+          user_id: string | null
         }
         Insert: {
           book_id?: string | null
@@ -125,6 +129,7 @@ export type Database = {
           status?: string | null
           student_name?: string | null
           task_type: string
+          user_id?: string | null
         }
         Update: {
           book_id?: string | null
@@ -137,6 +142,7 @@ export type Database = {
           status?: string | null
           student_name?: string | null
           task_type?: string
+          user_id?: string | null
         }
         Relationships: [
           {
