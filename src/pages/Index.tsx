@@ -128,6 +128,25 @@ const Index = () => {
     navigate("/auth");
   };
 
+  const handleBrowseCatalog = async () => {
+    setIsSearching(true);
+    setSearchQuery("");
+    try {
+      const { data, error } = await supabase
+        .from('books')
+        .select('*')
+        .order('title')
+        .limit(50);
+
+      if (error) throw error;
+      setSearchResults(data || []);
+    } catch (error) {
+      console.error('Browse error:', error);
+    } finally {
+      setIsSearching(false);
+    }
+  };
+
   const getStatusColor = (status: string) => {
     switch (status) {
       case "pending":
@@ -234,7 +253,12 @@ const Index = () => {
 
         {/* Quick Actions */}
         <div className="grid grid-cols-2 gap-4 mt-6">
-          <Button variant="outline" className="h-24 flex flex-col gap-2">
+          <Button 
+            variant="outline" 
+            className="h-24 flex flex-col gap-2"
+            onClick={handleBrowseCatalog}
+            disabled={isSearching}
+          >
             <BookOpen className="h-6 w-6" />
             <span className="text-sm font-medium">Browse Catalog</span>
           </Button>
