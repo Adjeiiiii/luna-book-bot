@@ -19,25 +19,20 @@ interface Book {
 
 interface BookSearchResultsProps {
   books: Book[];
+  userName: string;
   onRequestSuccess?: () => void;
 }
 
-export const BookSearchResults = ({ books, onRequestSuccess }: BookSearchResultsProps) => {
+export const BookSearchResults = ({ books, userName, onRequestSuccess }: BookSearchResultsProps) => {
   const [requestingBook, setRequestingBook] = useState<string | null>(null);
   const { toast } = useToast();
 
   const handleShowMeWhere = async (book: Book) => {
     setRequestingBook(book.id);
-    
-    const studentName = prompt("Please enter your name:");
-    if (!studentName) {
-      setRequestingBook(null);
-      return;
-    }
 
     try {
       const { data, error } = await supabase.functions.invoke('request-robot-navigation', {
-        body: { bookId: book.id, studentName }
+        body: { bookId: book.id, studentName: userName }
       });
 
       if (error) throw error;

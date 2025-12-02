@@ -1,11 +1,13 @@
 import { useState, useEffect } from "react";
-import { Search, BookOpen, Clock, MapPin } from "lucide-react";
+import { useNavigate } from "react-router-dom";
+import { Search, BookOpen, Clock, MapPin, LogOut } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/integrations/supabase/client";
 import { BookSearchResults } from "@/components/BookSearchResults";
+import { User } from "@supabase/supabase-js";
 
 interface BookRequest {
   id: string;
@@ -17,35 +19,59 @@ interface BookRequest {
 }
 
 const Index = () => {
+  const [user, setUser] = useState<User | null>(null);
+  const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState<any[]>([]);
   const [isSearching, setIsSearching] = useState(false);
   const [activeRequests, setActiveRequests] = useState<BookRequest[]>([]);
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      setUser(session?.user ?? null);
+      setLoading(false);
+      if (!session?.user) {
+        navigate("/auth");
+      }
+    });
+
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setUser(session?.user ?? null);
+      setLoading(false);
+      if (!session?.user) {
+        navigate("/auth");
+      }
+    });
+
+    return () => subscription.unsubscribe();
+  }, [navigate]);
 
   // Fetch active requests
   useEffect(() => {
-    fetchActiveRequests();
+    if (user) {
+      fetchActiveRequests();
 
-    // Subscribe to realtime updates
-    const channel = supabase
-      .channel('book-requests-changes')
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'book_requests'
-        },
-        () => {
-          fetchActiveRequests();
-        }
-      )
-      .subscribe();
+      const channel = supabase
+        .channel('book-requests-changes')
+        .on(
+          'postgres_changes',
+          {
+            event: '*',
+            schema: 'public',
+            table: 'book_requests'
+          },
+          () => {
+            fetchActiveRequests();
+          }
+        )
+        .subscribe();
 
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, []);
+      return () => {
+        supabase.removeChannel(channel);
+      };
+    }
+  }, [user]);
 
   const fetchActiveRequests = async () => {
     const { data, error } = await supabase
@@ -97,6 +123,11 @@ const Index = () => {
     }
   };
 
+  const handleSignOut = async () => {
+    await supabase.auth.signOut();
+    navigate("/auth");
+  };
+
   const getStatusColor = (status: string) => {
     switch (status) {
       case "pending":
@@ -123,16 +154,38 @@ const Index = () => {
     }
   };
 
+  const getUserName = () => {
+    return user?.user_metadata?.full_name || user?.email?.split('@')[0] || 'Student';
+  };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <BookOpen className="h-8 w-8 animate-pulse text-primary" />
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-background pb-20">
       {/* Header */}
       <header className="bg-primary text-primary-foreground px-6 py-8 pb-12 rounded-b-3xl shadow-lg">
         <div className="max-w-2xl mx-auto">
-          <div className="flex items-center gap-3 mb-2">
-            <BookOpen className="h-8 w-8" />
-            <h1 className="text-3xl font-bold">LUNA</h1>
+          <div className="flex items-center justify-between mb-2">
+            <div className="flex items-center gap-3">
+              <BookOpen className="h-8 w-8" />
+              <h1 className="text-3xl font-bold">LUNA</h1>
+            </div>
+            <Button 
+              variant="ghost" 
+              size="icon"
+              onClick={handleSignOut}
+              className="text-primary-foreground hover:bg-primary-foreground/10"
+            >
+              <LogOut className="h-5 w-5" />
+            </Button>
           </div>
-          <p className="text-primary-foreground/90 text-sm">Library Utility & Navigation Assistant</p>
+          <p className="text-primary-foreground/90 text-sm">Welcome, {getUserName()}!</p>
         </div>
       </header>
 
@@ -168,7 +221,8 @@ const Index = () => {
           <div className="mt-6">
             <h2 className="text-xl font-semibold mb-4 text-foreground">Search Results</h2>
             <BookSearchResults 
-              books={searchResults} 
+              books={searchResults}
+              userName={getUserName()}
               onRequestSuccess={() => {
                 setSearchResults([]);
                 setSearchQuery("");
