@@ -12,10 +12,35 @@ serve(async (req) => {
   }
 
   try {
-    const supabase = createClient(
+    // Create client with service role for database operations
+    const supabaseAdmin = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     );
+
+    // Create client with user's auth token to get their identity
+    const authHeader = req.headers.get('Authorization');
+    if (!authHeader) {
+      return new Response(
+        JSON.stringify({ error: 'Authentication required' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    const supabaseUser = createClient(
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_ANON_KEY') ?? '',
+      { global: { headers: { Authorization: authHeader } } }
+    );
+
+    // Get authenticated user
+    const { data: { user }, error: userError } = await supabaseUser.auth.getUser();
+    if (userError || !user) {
+      return new Response(
+        JSON.stringify({ error: 'Invalid authentication' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
 
     const { bookId, studentName } = await req.json();
 
@@ -27,7 +52,7 @@ serve(async (req) => {
     }
 
     // Get book details
-    const { data: book, error: bookError } = await supabase
+    const { data: book, error: bookError } = await supabaseAdmin
       .from('books')
       .select('*')
       .eq('id', bookId)
@@ -41,13 +66,14 @@ serve(async (req) => {
       );
     }
 
-    // Create robot task
-    const { data: robotTask, error: taskError } = await supabase
+    // Create robot task with user_id
+    const { data: robotTask, error: taskError } = await supabaseAdmin
       .from('robot_tasks')
       .insert({
         task_type: 'navigation_assist',
         book_id: bookId,
         student_name: studentName,
+        user_id: user.id,
         status: 'pending',
         priority: 1,
         notes: `Navigate student to ${book.shelf_location} for "${book.title}"`
@@ -63,12 +89,13 @@ serve(async (req) => {
       );
     }
 
-    // Create book request
-    const { data: bookRequest, error: requestError } = await supabase
+    // Create book request with user_id
+    const { data: bookRequest, error: requestError } = await supabaseAdmin
       .from('book_requests')
       .insert({
         book_id: bookId,
         student_name: studentName,
+        user_id: user.id,
         request_type: 'navigation_assist',
         status: 'pending',
         robot_task_id: robotTask.id
@@ -88,7 +115,8 @@ serve(async (req) => {
       robotTaskId: robotTask.id,
       bookRequestId: bookRequest.id,
       book: book.title,
-      location: book.shelf_location
+      location: book.shelf_location,
+      userId: user.id
     });
 
     return new Response(
