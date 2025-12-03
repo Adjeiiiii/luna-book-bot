@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { Search, BookOpen, Clock, MapPin, LogOut, ArrowLeft } from "lucide-react";
+import { Search, BookOpen, Clock, MapPin, LogOut, ArrowLeft, CheckCircle } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -193,6 +193,25 @@ const Index = () => {
     setSearchQuery("");
     setShowHistory(false);
     setShowBrowseCatalog(false);
+  };
+
+  const handleMarkAsCollected = async () => {
+    if (!selectedPickupRequest) return;
+    
+    try {
+      await supabase
+        .from('book_requests')
+        .update({ 
+          status: 'completed',
+          completed_at: new Date().toISOString()
+        })
+        .eq('id', selectedPickupRequest.id);
+      
+      setSelectedPickupRequest(null);
+      fetchActiveRequests();
+    } catch (error) {
+      console.error('Error marking as collected:', error);
+    }
   };
 
   const handleBrowseCatalog = async () => {
@@ -547,6 +566,14 @@ const Index = () => {
               <p className="text-xs text-muted-foreground text-center">
                 Please collect within 24 hours or the book will be returned to the shelf.
               </p>
+
+              <Button 
+                className="w-full" 
+                onClick={handleMarkAsCollected}
+              >
+                <CheckCircle className="h-4 w-4 mr-2" />
+                Mark as Collected
+              </Button>
             </div>
           )}
         </DialogContent>
