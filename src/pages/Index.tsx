@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { Search, BookOpen, Clock, MapPin, LogOut } from "lucide-react";
+import { Search, BookOpen, Clock, MapPin, LogOut, ArrowLeft } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -27,6 +27,7 @@ const Index = () => {
   const [activeRequests, setActiveRequests] = useState<BookRequest[]>([]);
   const [historyRequests, setHistoryRequests] = useState<BookRequest[]>([]);
   const [showHistory, setShowHistory] = useState(false);
+  const [showBrowseCatalog, setShowBrowseCatalog] = useState(false);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -179,8 +180,16 @@ const Index = () => {
     navigate("/auth");
   };
 
+  const handleBackToHome = () => {
+    setSearchResults([]);
+    setSearchQuery("");
+    setShowHistory(false);
+    setShowBrowseCatalog(false);
+  };
+
   const handleBrowseCatalog = async () => {
     setShowHistory(false);
+    setShowBrowseCatalog(true);
     setIsSearching(true);
     setSearchQuery("");
     try {
@@ -325,13 +334,20 @@ const Index = () => {
         {/* Search Results */}
         {searchResults.length > 0 && (
           <div className="mt-6">
-            <h2 className="text-xl font-semibold mb-4 text-foreground">Search Results</h2>
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-xl font-semibold text-foreground">
+                {showBrowseCatalog ? "Browse Catalog" : "Search Results"}
+              </h2>
+              <Button variant="ghost" size="sm" onClick={handleBackToHome}>
+                <ArrowLeft className="h-4 w-4 mr-1" />
+                Back
+              </Button>
+            </div>
             <BookSearchResults 
               books={searchResults}
               userName={getUserName()}
               onRequestSuccess={() => {
-                setSearchResults([]);
-                setSearchQuery("");
+                handleBackToHome();
                 fetchActiveRequests();
               }}
             />
@@ -365,8 +381,9 @@ const Index = () => {
           <div className="mt-8">
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-xl font-semibold text-foreground">Request History</h2>
-              <Button variant="ghost" size="sm" onClick={() => setShowHistory(false)}>
-                Close
+              <Button variant="ghost" size="sm" onClick={handleBackToHome}>
+                <ArrowLeft className="h-4 w-4 mr-1" />
+                Back
               </Button>
             </div>
             {historyRequests.length === 0 ? (
