@@ -25,6 +25,8 @@ const Index = () => {
   const [searchResults, setSearchResults] = useState<any[]>([]);
   const [isSearching, setIsSearching] = useState(false);
   const [activeRequests, setActiveRequests] = useState<BookRequest[]>([]);
+  const [historyRequests, setHistoryRequests] = useState<BookRequest[]>([]);
+  const [showHistory, setShowHistory] = useState(false);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -129,6 +131,7 @@ const Index = () => {
   };
 
   const handleBrowseCatalog = async () => {
+    setShowHistory(false);
     setIsSearching(true);
     setSearchQuery("");
     try {
@@ -142,6 +145,41 @@ const Index = () => {
       setSearchResults(data || []);
     } catch (error) {
       console.error('Browse error:', error);
+    } finally {
+      setIsSearching(false);
+    }
+  };
+
+  const handleShowHistory = async () => {
+    setSearchResults([]);
+    setSearchQuery("");
+    setIsSearching(true);
+    try {
+      const { data, error } = await supabase
+        .from('book_requests')
+        .select(`
+          *,
+          books (title, author, shelf_location)
+        `)
+        .eq('status', 'completed')
+        .order('completed_at', { ascending: false })
+        .limit(20);
+
+      if (!error && data) {
+        setHistoryRequests(
+          data.map((req: any) => ({
+            id: req.id,
+            title: req.books.title,
+            author: req.books.author,
+            status: 'completed' as any,
+            pickupLocation: req.pickup_location || req.books.shelf_location,
+            requestedAt: new Date(req.requested_at).toLocaleDateString()
+          }))
+        );
+      }
+      setShowHistory(true);
+    } catch (error) {
+      console.error('History error:', error);
     } finally {
       setIsSearching(false);
     }
@@ -262,13 +300,56 @@ const Index = () => {
             <BookOpen className="h-6 w-6" />
             <span className="text-sm font-medium">Browse Catalog</span>
           </Button>
-          <Button variant="outline" className="h-24 flex flex-col gap-2">
+          <Button 
+            variant="outline" 
+            className="h-24 flex flex-col gap-2"
+            onClick={handleShowHistory}
+            disabled={isSearching}
+          >
             <Clock className="h-6 w-6" />
             <span className="text-sm font-medium">My History</span>
           </Button>
         </div>
 
+        {/* History Section */}
+        {showHistory && (
+          <div className="mt-8">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-xl font-semibold text-foreground">Request History</h2>
+              <Button variant="ghost" size="sm" onClick={() => setShowHistory(false)}>
+                Close
+              </Button>
+            </div>
+            {historyRequests.length === 0 ? (
+              <Card>
+                <CardContent className="p-8 text-center">
+                  <Clock className="h-12 w-12 mx-auto mb-3 text-muted-foreground" />
+                  <p className="text-muted-foreground">No completed requests yet</p>
+                </CardContent>
+              </Card>
+            ) : (
+              <div className="space-y-3">
+                {historyRequests.map((request) => (
+                  <Card key={request.id} className="overflow-hidden">
+                    <CardContent className="p-4">
+                      <div className="flex items-start justify-between">
+                        <div>
+                          <p className="font-medium">{request.title}</p>
+                          <p className="text-sm text-muted-foreground">{request.author}</p>
+                        </div>
+                        <Badge variant="secondary">Completed</Badge>
+                      </div>
+                      <p className="text-xs text-muted-foreground mt-2">{request.requestedAt}</p>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
         {/* Active Requests */}
+        {!showHistory && (
         <div className="mt-8">
           <h2 className="text-xl font-semibold mb-4 text-foreground">Active Requests</h2>
           
@@ -317,6 +398,7 @@ const Index = () => {
             </div>
           )}
         </div>
+        )}
 
         {/* Info Card */}
         <Card className="mt-8 bg-primary/5 border-primary/20">
