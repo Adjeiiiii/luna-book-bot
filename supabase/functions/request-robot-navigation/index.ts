@@ -6,6 +6,18 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+// Decode JWT payload without verification (Supabase already verified it)
+function decodeJwtPayload(token: string): { sub: string; email?: string } | null {
+  try {
+    const parts = token.split('.');
+    if (parts.length !== 3) return null;
+    const payload = JSON.parse(atob(parts[1]));
+    return payload;
+  } catch {
+    return null;
+  }
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -18,7 +30,7 @@ serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     );
 
-    // Create client with user's auth token to get their identity
+    // Get user from JWT token
     const authHeader = req.headers.get('Authorization');
     if (!authHeader) {
       return new Response(
@@ -27,20 +39,18 @@ serve(async (req) => {
       );
     }
 
-    const supabaseUser = createClient(
-      Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_ANON_KEY') ?? '',
-      { global: { headers: { Authorization: authHeader } } }
-    );
-
-    // Get authenticated user
-    const { data: { user }, error: userError } = await supabaseUser.auth.getUser();
-    if (userError || !user) {
+    const token = authHeader.replace('Bearer ', '');
+    const jwtPayload = decodeJwtPayload(token);
+    
+    if (!jwtPayload?.sub) {
       return new Response(
         JSON.stringify({ error: 'Invalid authentication' }),
         { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
+
+    const userId = jwtPayload.sub;
+    console.log('Authenticated user:', userId);
 
     const { bookId, studentName } = await req.json();
 
@@ -73,7 +83,7 @@ serve(async (req) => {
         task_type: 'navigation_assist',
         book_id: bookId,
         student_name: studentName,
-        user_id: user.id,
+        user_id: userId,
         status: 'pending',
         priority: 1,
         notes: `Navigate student to ${book.shelf_location} for "${book.title}"`
@@ -95,7 +105,7 @@ serve(async (req) => {
       .insert({
         book_id: bookId,
         student_name: studentName,
-        user_id: user.id,
+        user_id: userId,
         request_type: 'navigation_assist',
         status: 'pending',
         robot_task_id: robotTask.id
@@ -116,7 +126,7 @@ serve(async (req) => {
       bookRequestId: bookRequest.id,
       book: book.title,
       location: book.shelf_location,
-      userId: user.id
+      userId: userId
     });
 
     return new Response(
