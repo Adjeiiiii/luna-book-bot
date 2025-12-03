@@ -13,7 +13,7 @@ interface BookRequest {
   id: string;
   title: string;
   author: string;
-  status: "pending" | "in-transit" | "ready";
+  status: "pending" | "in-transit" | "ready" | "completed";
   pickupLocation: string;
   requestedAt: string;
 }
@@ -74,6 +74,55 @@ const Index = () => {
       };
     }
   }, [user]);
+
+  // Auto-process simulation: advance request status after random delay
+  useEffect(() => {
+    const processRequest = async (requestId: string, currentStatus: string) => {
+      let nextStatus: string | null = null;
+      
+      if (currentStatus === 'pending') {
+        nextStatus = 'robot_navigating';
+      } else if (currentStatus === 'in-transit' || currentStatus === 'robot_navigating') {
+        nextStatus = 'ready';
+      } else if (currentStatus === 'ready') {
+        nextStatus = 'completed';
+      }
+
+      if (nextStatus) {
+        const updateData: any = { status: nextStatus };
+        if (nextStatus === 'completed') {
+          updateData.completed_at = new Date().toISOString();
+        }
+        
+        await supabase
+          .from('book_requests')
+          .update(updateData)
+          .eq('id', requestId);
+      }
+    };
+
+    const timeouts: NodeJS.Timeout[] = [];
+
+    activeRequests.forEach((request) => {
+      if (request.status !== 'completed' && request.status !== 'ready') {
+        const delay = Math.random() * 30000 + 5000; // 5-35 seconds
+        const timeout = setTimeout(() => {
+          processRequest(request.id, request.status);
+        }, delay);
+        timeouts.push(timeout);
+      } else if (request.status === 'ready') {
+        const delay = Math.random() * 20000 + 10000; // 10-30 seconds
+        const timeout = setTimeout(() => {
+          processRequest(request.id, request.status);
+        }, delay);
+        timeouts.push(timeout);
+      }
+    });
+
+    return () => {
+      timeouts.forEach(clearTimeout);
+    };
+  }, [activeRequests]);
 
   const fetchActiveRequests = async () => {
     const { data, error } = await supabase
