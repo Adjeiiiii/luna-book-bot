@@ -5,6 +5,13 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { supabase } from "@/integrations/supabase/client";
 import { BookSearchResults } from "@/components/BookSearchResults";
 import { User } from "@supabase/supabase-js";
@@ -28,6 +35,7 @@ const Index = () => {
   const [historyRequests, setHistoryRequests] = useState<BookRequest[]>([]);
   const [showHistory, setShowHistory] = useState(false);
   const [showBrowseCatalog, setShowBrowseCatalog] = useState(false);
+  const [selectedPickupRequest, setSelectedPickupRequest] = useState<BookRequest | null>(null);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -454,7 +462,10 @@ const Index = () => {
                       </div>
                     </div>
                     {request.status === "ready" && (
-                      <Button className="w-full mt-4 bg-accent hover:bg-accent/90">
+                      <Button 
+                        className="w-full mt-4 bg-accent hover:bg-accent/90"
+                        onClick={() => setSelectedPickupRequest(request)}
+                      >
                         View Pickup Details
                       </Button>
                     )}
@@ -484,6 +495,62 @@ const Index = () => {
           </CardContent>
         </Card>
       </div>
+
+      {/* Pickup Details Dialog */}
+      <Dialog open={!!selectedPickupRequest} onOpenChange={() => setSelectedPickupRequest(null)}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <BookOpen className="h-5 w-5 text-primary" />
+              Pickup Details
+            </DialogTitle>
+            <DialogDescription>
+              Your book is ready for pickup!
+            </DialogDescription>
+          </DialogHeader>
+          {selectedPickupRequest && (
+            <div className="space-y-4">
+              <div className="bg-muted/50 rounded-lg p-4 space-y-3">
+                <div>
+                  <p className="text-sm text-muted-foreground">Book</p>
+                  <p className="font-medium">{selectedPickupRequest.title}</p>
+                  <p className="text-sm text-muted-foreground">{selectedPickupRequest.author}</p>
+                </div>
+              </div>
+              
+              <div className="grid grid-cols-2 gap-4">
+                <div className="bg-primary/5 rounded-lg p-3">
+                  <div className="flex items-center gap-2 mb-1">
+                    <MapPin className="h-4 w-4 text-primary" />
+                    <p className="text-sm text-muted-foreground">Location</p>
+                  </div>
+                  <p className="font-medium">Front Desk</p>
+                  <p className="text-xs text-muted-foreground">Main Library Entrance</p>
+                </div>
+                
+                <div className="bg-primary/5 rounded-lg p-3">
+                  <div className="flex items-center gap-2 mb-1">
+                    <Clock className="h-4 w-4 text-primary" />
+                    <p className="text-sm text-muted-foreground">Ready Since</p>
+                  </div>
+                  <p className="font-medium">{selectedPickupRequest.requestedAt}</p>
+                  <p className="text-xs text-muted-foreground">{new Date().toLocaleDateString()}</p>
+                </div>
+              </div>
+
+              <div className="bg-accent/10 border border-accent/20 rounded-lg p-3">
+                <p className="text-sm font-medium text-accent-foreground">Pickup Hours</p>
+                <p className="text-sm text-muted-foreground">Mon-Fri: 8:00 AM - 6:00 PM</p>
+                <p className="text-sm text-muted-foreground">Sat: 9:00 AM - 4:00 PM</p>
+              </div>
+
+              <p className="text-xs text-muted-foreground text-center">
+                Please collect within 24 hours or the book will be returned to the shelf.
+              </p>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
