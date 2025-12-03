@@ -140,6 +140,7 @@ const Index = () => {
         *,
         books (title, author, shelf_location)
       `)
+      .neq('status', 'completed')
       .order('requested_at', { ascending: false })
       .limit(10);
 
